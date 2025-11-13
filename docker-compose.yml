@@ -1,13 +1,14 @@
 version: "3.9"
 
 services:
+  # initializes airflow
   airflow-init:
     image: apache/airflow:3.1.2
     container_name: airflow-init
     environment:
       - AIRFLOW__CORE__EXECUTOR=LocalExecutor
       - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=sqlite:////opt/airflow/airflow.db
-      - AIRFLOW__CORE__FERNET_KEY=${AIRFLOW_FERNET_KEY:-somethingrandomandlong}
+      - AIRFLOW__CORE__FERNET_KEY=${AIRFLOW_FERNET_KEY}
       - AIRFLOW__CORE__LOAD_EXAMPLES=False
       - _PIP_ADDITIONAL_REQUIREMENTS=pandas requests
     volumes:
@@ -17,27 +18,20 @@ services:
       - ./steam.db:/opt/airflow/steam_project/steam.db
     entrypoint: >
       bash -c "
-      airflow db migrate &&
-      airflow users create
-        --username admin
-        --password admin
-        --firstname Admin
-        --lastname User
-        --role Admin
-        --email admin@example.com
+      airflow db migrate
       "
-
-  airflow-webserver:
+  # hosts airflow UI
+  airflow-api-server:
     image: apache/airflow:3.1.2
-    container_name: airflow-webserver
+    container_name: airflow-api-server
     depends_on:
       - airflow-init
     environment:
       - AIRFLOW__CORE__EXECUTOR=LocalExecutor
       - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=sqlite:////opt/airflow/airflow.db
-      - AIRFLOW__CORE__FERNET_KEY=${AIRFLOW_FERNET_KEY:-somethingrandomandlong}
+      - AIRFLOW__CORE__FERNET_KEY=${AIRFLOW_FERNET_KEY}
       - AIRFLOW__CORE__LOAD_EXAMPLES=False
-      - _PIP_ADDITIONAL_REQUIREMENTS=pandas requests
+      - AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_USERS=${AIRFLOW_ADMIN_USERNAME}:${AIRFLOW_ADMIN_ROLE}
       - STEAM_DB_PATH=/opt/airflow/steam_project/steam.db
     volumes:
       - airflow_home:/opt/airflow
@@ -46,27 +40,9 @@ services:
       - ./steam.db:/opt/airflow/steam_project/steam.db
     ports:
       - "8080:8080"
-    command: webserver
+    command: api-server
 
-  airflow-scheduler:
-    image: apache/airflow:3.1.2
-    container_name: airflow-scheduler
-    depends_on:
-      - airflow-init
-    environment:
-      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
-      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=sqlite:////opt/airflow/airflow.db
-      - AIRFLOW__CORE__FERNET_KEY=${AIRFLOW_FERNET_KEY:-somethingrandomandlong}
-      - AIRFLOW__CORE__LOAD_EXAMPLES=False
-      - _PIP_ADDITIONAL_REQUIREMENTS=pandas requests
-      - STEAM_DB_PATH=/opt/airflow/steam_project/steam.db
-    volumes:
-      - airflow_home:/opt/airflow
-      - ./airflow/dags:/opt/airflow/dags
-      - ./:/opt/airflow/steam_project
-      - ./steam.db:/opt/airflow/steam_project/steam.db
-    command: scheduler
-
+  # runs main.py
   steam-etl:
       build: .
       container_name: steam-etl
@@ -76,6 +52,7 @@ services:
         - ./steam.db:/app/steam.db
       command: python main.py
 
+  # runs the streamlit dashboard
   steam-dashboard:
     build: .
     container_name: steam-dashboard
