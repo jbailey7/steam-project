@@ -2,7 +2,7 @@ import sqlite3
 import pandas as pd
 import os
 
-DB_PATH = "steam.db"
+DB_PATH = os.getenv("STEAM_DB_PATH", "steam.db")
 
 def create_connection():
     """Create a SQLite database connection."""
@@ -14,6 +14,7 @@ def store_dataframe(df, table_name):
     if df.empty:
         print(f"No data to store for {table_name}")
         return
+
     conn = create_connection()
     df.to_sql(table_name, conn, if_exists="replace", index=False)
     conn.close()
@@ -29,6 +30,8 @@ def load_table(table_name):
 def list_tables():
     """Show available tables in the database."""
     conn = create_connection()
-    tables = pd.read_sql_query("SELECT name FROM sqlite_master WHERE type='table';", conn)
+    tables = pd.read_sql_query(
+        "SELECT name FROM sqlite_master WHERE type='table';", conn
+    )
     conn.close()
     return tables["name"].tolist()

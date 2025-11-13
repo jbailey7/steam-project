@@ -1,9 +1,9 @@
 import streamlit as st
 import pandas as pd
 from api import get_steam_user_info
+import os
 
-# Replace with your own Steam Web API key
-API_KEY = "7EBAED296E47438BA2EDA19B544D867C"
+API_KEY = os.getenv("STEAM_API_KEY")
 
 def main():
     st.title("Steam User Dashboard")
