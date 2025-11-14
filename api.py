@@ -12,7 +12,7 @@ def get_top_games(limit=100):
     for g in top_games:
         appid = g["appid"]
         info = requests.get(f"https://store.steampowered.com/api/appdetails?appids={appid}").json()
-        if info.get(str(appid), {}).get("success"):
+        if info and info.get(str(appid), {}).get("success"):
             name = info[str(appid)]["data"]["name"]
         else:
             name = f"App {appid}"
@@ -104,4 +104,3 @@ def get_steam_user_info(steam_id, api_key):
     }])
 
     return df
-
