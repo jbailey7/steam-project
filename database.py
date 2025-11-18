@@ -32,3 +32,7 @@ def list_tables():
     tables = pd.read_sql_query("SELECT name FROM sqlite_master WHERE type='table';", conn)
     conn.close()
     return tables["name"].tolist()
+
+def store_steamspy_table(df):
+    """Store SteamSpy data into steam.db as table 'games'."""
+    store_dataframe(df, "games")

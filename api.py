@@ -129,3 +129,16 @@ def get_steam_level(api_key, steam_id):
 def get_ban_info(api_key, steam_id):
     url = f"https://api.steampowered.com/ISteamUser/GetPlayerBans/v1/?key={api_key}&steamids={steam_id}"
     return _safe_json(url)
+
+# 10. SteamSpy: Get ALL SteamSpy game stats (100k+ rows)
+def get_steamspy_all():
+    """Return a DataFrame of all SteamSpy game statistics."""
+    url = "https://steamspy.com/api.php?request=all"
+    data = _safe_json(url)
+
+    df = pd.DataFrame.from_dict(data, orient="index")
+
+    cols = ["appid", "name", "owners", "average_forever", "average_2weeks", "players_2weeks"]
+    df = df[[c for c in cols if c in df.columns]]
+
+    return df
