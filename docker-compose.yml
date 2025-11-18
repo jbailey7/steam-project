@@ -34,6 +34,7 @@ services:
       - _PIP_ADDITIONAL_REQUIREMENTS=pandas requests
       - STEAM_API_KEY=${STEAM_API_KEY}
       - AIRFLOW__API__BASE_URL=http://airflow-api-server:8080
+      - PYTHONWARNINGS=ignore::DeprecationWarning
 
     volumes:
       - airflow_home:/opt/airflow
@@ -60,6 +61,7 @@ services:
       - _PIP_ADDITIONAL_REQUIREMENTS=pandas requests
       - STEAM_API_KEY=${STEAM_API_KEY}
       - AIRFLOW__API__BASE_URL=http://airflow-api-server:8080
+      - PYTHONWARNINGS=ignore::DeprecationWarning
 
     volumes:
       - airflow_home:/opt/airflow
@@ -83,6 +85,7 @@ services:
       - _PIP_ADDITIONAL_REQUIREMENTS=pandas requests
       - STEAM_API_KEY=${STEAM_API_KEY}
       - AIRFLOW__API__BASE_URL=http://airflow-api-server:8080
+      - PYTHONWARNINGS=ignore::DeprecationWarning
     volumes:
       - airflow_home:/opt/airflow
       - ./airflow/dags:/opt/airflow/dags
@@ -105,6 +108,7 @@ services:
       - _PIP_ADDITIONAL_REQUIREMENTS=pandas requests
       - STEAM_API_KEY=${STEAM_API_KEY}
       - AIRFLOW__API__BASE_URL=http://airflow-api-server:8080
+      - PYTHONWARNINGS=ignore::DeprecationWarning
     volumes:
       - airflow_home:/opt/airflow
       - ./airflow/dags:/opt/airflow/dags
