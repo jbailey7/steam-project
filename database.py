@@ -35,3 +35,7 @@ def list_tables():
     )
     conn.close()
     return tables["name"].tolist()
+
+def store_steamspy_table(df):
+    """Store SteamSpy data into steam.db as table 'games'."""
+    store_dataframe(df, "games")

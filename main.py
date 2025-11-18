@@ -1,6 +1,8 @@
-from api import get_top_games, get_news, get_stats
-from database import store_dataframe, list_tables
+from api import get_top_games, get_news, get_stats, get_steamspy_all
+from database import store_dataframe, list_tables, store_steamspy_table
 
+df = get_steamspy_all()
+store_steamspy_table(df)
 def main():
     # Step 1: Get top 50 games
     games = get_top_games()
@@ -11,9 +13,13 @@ def main():
     # Step 3: Get stats for each game
     stats_df = get_stats(games)
 
-    # Step 4: Store data in database
+    #n Step 4: Get steamspy table for each game
+    df = get_steamspy_all()
+    
+    # Step 5: Store data in database
     store_dataframe(news_df, "news")
     store_dataframe(stats_df, "stats")
+    store_steamspy_table(df)
 
     print("Current tables:", list_tables())
 
