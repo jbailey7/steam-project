@@ -1,107 +1,131 @@
 import requests
 import pandas as pd
 
+# Utility – Safe JSON fetch
+def _safe_json(url, timeout=5):
+    try:
+        r = requests.get(url, timeout=timeout)
+        if r.status_code != 200:
+            return {}
+        return r.json()
+    except:
+        return {}
 
+# 1. Global: Top Games
 def get_top_games(limit=100):
-    """Fetch the top N most played games with their appids."""
-    charts_url = "https://api.steampowered.com/ISteamChartsService/GetMostPlayedGames/v1/"
-    charts_data = requests.get(charts_url).json()
-    top_games = charts_data["response"]["ranks"][:limit]
+    """Return dict: {game_name: appid} using SteamCharts API + Store API."""
+    url = "https://api.steampowered.com/ISteamChartsService/GetMostPlayedGames/v1/"
+    data = _safe_json(url)
+
+    ranks = data.get("response", {}).get("ranks", [])
+    ranks = ranks[:limit]
 
     games = {}
-    for g in top_games:
-        appid = g["appid"]
-        info = requests.get(f"https://store.steampowered.com/api/appdetails?appids={appid}").json()
-        if info.get(str(appid), {}).get("success"):
-            name = info[str(appid)]["data"]["name"]
-        else:
-            name = f"App {appid}"
+
+    for g in ranks:
+        appid = g.get("appid")
+        if not appid:
+            continue
+
+        # Fetch real game name using Store API
+        store_raw = _safe_json(f"https://store.steampowered.com/api/appdetails?appids={appid}")
+        block = store_raw.get(str(appid), {})
+
+        if not block.get("success"):
+            continue
+
+        dat = block.get("data", {})
+        if not dat:
+            continue
+
+        name = dat.get("name", f"App {appid}")
         games[name] = appid
 
     return games
 
+# 2. Global: News
+def get_news(appid):
+    """Return a DataFrame of recent news for a single appid."""
+    url = f"https://api.steampowered.com/ISteamNews/GetNewsForApp/v2/?appid={appid}&count=20&format=json"
+    data = _safe_json(url)
 
-def get_news(games):
-    """Fetch recent news for each game."""
-    all_news = []
-    for name, appid in games.items():
-        news_url = f"https://api.steampowered.com/ISteamNews/GetNewsForApp/v2/?appid={appid}&count=10&format=json"
-        res = requests.get(news_url)
-        if res.status_code != 200:
-            print(f"Failed to fetch news for {name}")
-            continue
+    items = data.get("appnews", {}).get("newsitems", [])
+    df = pd.DataFrame(items)
 
-        news_items = res.json().get("appnews", {}).get("newsitems", [])
-        for item in news_items:
-            all_news.append({
-                "game_name": name,
-                "appid": appid,
-                "title": item.get("title"),
-                "author": item.get("author"),
-                "feedlabel": item.get("feedlabel"),
-                "date": item.get("date"),
-                "url": item.get("url")
-            })
+    if not df.empty:
+        df["date"] = pd.to_datetime(df["date"], unit="s", errors="coerce")
 
-    df = pd.DataFrame(all_news)
-    df["date"] = pd.to_datetime(df["date"], unit="s", errors="coerce")
     return df
 
+# 3. Global: Achievement Stats
+def get_stats(appid):
+    """Return DataFrame of global achievement percentages for a single appid."""
+    url = f"https://api.steampowered.com/ISteamUserStats/GetGlobalAchievementPercentagesForApp/v2/?gameid={appid}"
+    data = _safe_json(url)
 
-def get_stats(games):
-    """Fetch global achievement percentages for each game."""
-    all_stats = []
-    for name, appid in games.items():
-        stats_url = f"https://api.steampowered.com/ISteamUserStats/GetGlobalAchievementPercentagesForApp/v2/?gameid={appid}"
-        res = requests.get(stats_url)
-        if res.status_code != 200:
-            print(f"Failed to fetch stats for {name}")
-            continue
+    achievements = data.get("achievementpercentages", {}).get("achievements", [])
+    df = pd.DataFrame(achievements)
 
-        achievements = res.json().get("achievementpercentages", {}).get("achievements", [])
-        for a in achievements:
-            all_stats.append({
-                "game_name": name,
-                "appid": appid,
-                "achievement": a.get("name"),
-                "percent_unlocked": a.get("percent")
-            })
+    if not df.empty:
+        df.rename(columns={"name": "achievement", "percent": "percent_unlocked"}, inplace=True)
+        df["percent_unlocked"] = pd.to_numeric(df["percent_unlocked"], errors="coerce")
 
-    return pd.DataFrame(all_stats)
+    return df
 
-import requests
-import pandas as pd
+# 4. Global: Store Metadata
+def get_store_info(appid):
+    """Return clean store info dict for a single appid."""
+    url = f"https://store.steampowered.com/api/appdetails?appids={appid}&cc=us&l=en"
+    data = _safe_json(url)
 
-# Existing imports like get_top_games(), get_news(), etc.
+    block = data.get(str(appid), {})
+    if not block.get("success"):
+        return {}
 
+    return block.get("data", {}) or {}
+
+# 5. Global: Current Player Count
+def get_current_players(appid):
+    """Return integer player count or None."""
+    url = f"https://api.steampowered.com/ISteamUserStats/GetNumberOfCurrentPlayers/v1/?appid={appid}"
+    data = _safe_json(url)
+
+    return data.get("response", {}).get("player_count", None)
+
+# 6. User: Profile Summary
 def get_steam_user_info(steam_id, api_key):
-    """
-    Fetch Steam user information for a given SteamID64.
-    """
     url = f"https://api.steampowered.com/ISteamUser/GetPlayerSummaries/v2/?key={api_key}&steamids={steam_id}"
-    res = requests.get(url)
+    data = _safe_json(url)
 
-    if res.status_code != 200:
-        print(f"Failed to fetch user info for {steam_id}")
-        return pd.DataFrame()
-
-    players = res.json().get("response", {}).get("players", [])
+    players = data.get("response", {}).get("players", [])
     if not players:
-        print(f"No player found for {steam_id}")
         return pd.DataFrame()
 
-    data = players[0]
+    p = players[0]
     df = pd.DataFrame([{
-        "steamid": data.get("steamid"),
-        "personaname": data.get("personaname"),
-        "realname": data.get("realname"),
-        "profileurl": data.get("profileurl"),
-        "avatar": data.get("avatarfull"),
-        "personastate": data.get("personastate"),
-        "loccountrycode": data.get("loccountrycode"),
-        "timecreated": pd.to_datetime(data.get("timecreated"), unit="s", errors="coerce"),
-        "lastlogoff": pd.to_datetime(data.get("lastlogoff"), unit="s", errors="coerce")
+        "steamid": p.get("steamid"),
+        "personaname": p.get("personaname"),
+        "realname": p.get("realname"),
+        "profileurl": p.get("profileurl"),
+        "avatar": p.get("avatarfull"),
+        "loccountrycode": p.get("loccountrycode"),
+        "timecreated": pd.to_datetime(p.get("timecreated"), unit="s", errors="coerce"),
+        "lastlogoff": pd.to_datetime(p.get("lastlogoff"), unit="s", errors="coerce")
     }])
 
     return df
 
+# 7. User: Owned Games
+def get_owned_games(api_key, steam_id):
+    url = f"https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/?key={api_key}&steamid={steam_id}&include_appinfo=1&include_played_free_games=1"
+    return _safe_json(url)
+
+# 8. User: Level
+def get_steam_level(api_key, steam_id):
+    url = f"https://api.steampowered.com/IPlayerService/GetSteamLevel/v1/?key={api_key}&steamid={steam_id}"
+    return _safe_json(url)
+
+# 9. User: Ban Info
+def get_ban_info(api_key, steam_id):
+    url = f"https://api.steampowered.com/ISteamUser/GetPlayerBans/v1/?key={api_key}&steamids={steam_id}"
+    return _safe_json(url)
