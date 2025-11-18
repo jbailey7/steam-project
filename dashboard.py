@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import altair as alt
+import os
 
 # Import API functions
 from api import (
@@ -103,7 +104,7 @@ def main():
     # UI Title
     st.title("🎮 Steam Analytics Dashboard")
 
-    st.image("vNc8DsYGVn3tDJ6xDptUnc-1200-80.jpg", use_container_width=True)
+    st.image("images/steam-logo.jpg", use_container_width=True)
 
     # adding section for adding steam accounts
     if "accounts" not in st.session_state:

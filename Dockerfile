@@ -11,4 +11,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY api.py database.py main.py dashboard.py ./
 
+COPY images/ ./images/
+
 CMD ["python", "main.py"]
