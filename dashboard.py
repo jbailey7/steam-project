@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import altair as alt
+import os
 
 # Import API functions
 from api import (
@@ -15,8 +16,7 @@ from api import (
     get_ban_info
 )
 
-# Replace with your own Steam Web API key
-API_KEY = "7EBAED296E47438BA2EDA19B544D867C"
+API_KEY = os.getenv("STEAM_API_KEY")
 
 def main():
     # Page Config + Dark Theme CSS
@@ -104,7 +104,7 @@ def main():
     # UI Title
     st.title("🎮 Steam Analytics Dashboard")
 
-    st.image("vNc8DsYGVn3tDJ6xDptUnc-1200-80.jpg", use_container_width=True)
+    st.image("images/steam-logo.jpg", use_container_width=True)
 
     # adding section for adding steam accounts
     if "accounts" not in st.session_state:
