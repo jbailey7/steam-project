@@ -1,6 +1,13 @@
 import requests
 import pandas as pd
 
+from database import (
+    store_store_info,
+    store_player_count,
+    store_user_profile,
+    store_owned_games,
+)
+
 # Utility – Safe JSON fetch
 def _safe_json(url, timeout=5):
     try:
@@ -82,7 +89,9 @@ def get_store_info(appid):
     if not block.get("success"):
         return {}
 
-    return block.get("data", {}) or {}
+    info = block.get("data", {}) or {}
+    store_store_info(appid, info)
+    return info
 
 # 5. Global: Current Player Count
 def get_current_players(appid):
@@ -90,7 +99,9 @@ def get_current_players(appid):
     url = f"https://api.steampowered.com/ISteamUserStats/GetNumberOfCurrentPlayers/v1/?appid={appid}"
     data = _safe_json(url)
 
-    return data.get("response", {}).get("player_count", None)
+    player_count = data.get("response", {}).get("player_count", None)
+    store_player_count(appid, player_count)
+    return player_count
 
 # 6. User: Profile Summary
 def get_steam_user_info(steam_id, api_key):
@@ -113,12 +124,15 @@ def get_steam_user_info(steam_id, api_key):
         "lastlogoff": pd.to_datetime(p.get("lastlogoff"), unit="s", errors="coerce")
     }])
 
+    store_user_profile(df)
     return df
 
 # 7. User: Owned Games
 def get_owned_games(api_key, steam_id):
     url = f"https://api.steampowered.com/IPlayerService/GetOwnedGames/v1/?key={api_key}&steamid={steam_id}&include_appinfo=1&include_played_free_games=1"
-    return _safe_json(url)
+    data = _safe_json(url)
+    store_owned_games(steam_id, data)
+    return data
 
 # 8. User: Level
 def get_steam_level(api_key, steam_id):
@@ -130,7 +144,7 @@ def get_ban_info(api_key, steam_id):
     url = f"https://api.steampowered.com/ISteamUser/GetPlayerBans/v1/?key={api_key}&steamids={steam_id}"
     return _safe_json(url)
 
-# 10. SteamSpy: Get ALL SteamSpy game stats (100k+ rows)
+# 10. SteamSpy: Get ALL SteamSpy game stats
 def get_steamspy_all():
     """Return a DataFrame of all SteamSpy game statistics."""
     url = "https://steamspy.com/api.php?request=all"
