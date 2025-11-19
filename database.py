@@ -87,6 +87,12 @@ def store_player_count(appid, player_count):
         "retrieved_at": pd.Timestamp.utcnow()
     }])
     conn = create_connection()
+    try:
+        with closing(conn.cursor()) as cur:
+            cur.execute("DELETE FROM player_counts WHERE appid=?", (appid,))
+            conn.commit()
+    except sqlite3.OperationalError:
+        pass
     df.to_sql("player_counts", conn, if_exists="append", index=False)
     conn.close()
     print(f"Stored player count for appid {appid}")

@@ -10,14 +10,17 @@ from api import (
 )
 from database import store_dataframe, list_tables, store_steamspy_table
 
+# Pull/store metadata only for this many top games
+TOP_N_GAMES = 100
+
 # Optional: configure user credentials for personal endpoints
 STEAM_API_KEY = None  # set to your Steam Web API key as needed
 STEAM_USER_ID = None  # set to the 64-bit SteamID you want to sync
 
 
 def main():
-    # Step 1: Get top 50 games
-    games = get_top_games()
+    # Step 1: Get top N games
+    games = get_top_games(limit=TOP_N_GAMES)
 
     # Step 2: Get news for each game
     news_df = get_news(games)
@@ -33,8 +36,8 @@ def main():
     store_dataframe(stats_df, "stats")
     store_steamspy_table(df)
 
-    # Step 6: Persist store info & player counts for first N games
-    for app_name, appid in list(games.items())[:50]:
+    # Step 6: Persist store info & player counts for selected N games
+    for app_name, appid in games.items():
         get_store_info(appid)
         get_current_players(appid)
 
