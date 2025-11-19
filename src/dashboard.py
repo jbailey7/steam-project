@@ -4,7 +4,7 @@ import altair as alt
 import os
 
 # Import API functions
-from api import (
+from src.api import (
     get_top_games,
     get_news,
     get_stats,
@@ -15,8 +15,6 @@ from api import (
     get_steam_level,
     get_ban_info
 )
-
-API_KEY = os.getenv("STEAM_API_KEY")
 
 def main():
     # Page Config + Dark Theme CSS
@@ -153,6 +151,11 @@ def main():
         "🌍 Global Game Explorer",
         "📊 Global Metrics"
     ])
+    
+    API_KEY = os.getenv("STEAM_API_KEY")
+    if not API_KEY:
+        st.error("No STEAM_API_KEY provided")
+        st.stop()
 
     # TAB 1 — Steam User Lookup
     with tab1:
@@ -164,7 +167,7 @@ def main():
         if not steam_id:
             st.info("Select an account above to load profile data.")
             st.stop()
-
+        
         user_df = cached_user(steam_id, API_KEY)
 
         if user_df.empty:
@@ -376,7 +379,7 @@ def main():
                 rows.append({"Game": name, "Price": price, "Players": count})
 
         df = pd.DataFrame(rows)
-
+        
         zoom = alt.selection_interval(bind='scales')
 
         scatter = (

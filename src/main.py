@@ -1,4 +1,4 @@
-from api import (
+from src.api import (
     get_top_games,
     get_news,
     get_stats,
@@ -8,7 +8,7 @@ from api import (
     get_steam_user_info,
     get_owned_games,
 )
-from database import store_dataframe, list_tables, store_steamspy_table
+from src.database import store_dataframe, list_tables, store_steamspy_table
 
 # Pull/store metadata only for this many top games
 TOP_N_GAMES = 100

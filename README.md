@@ -37,3 +37,6 @@ airflow users create \
   --password password
 
 3. Navigate to `http://localhost:8080/` and use the credentials you created to sign in. 
+
+To run locally with streamlit: 
+`PYTHONPATH=. streamlit run src/dashboard.py`

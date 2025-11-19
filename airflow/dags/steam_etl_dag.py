@@ -7,8 +7,8 @@ PROJECT_DIR = "/opt/airflow/steam_project"
 if PROJECT_DIR not in sys.path:
     sys.path.append(PROJECT_DIR)
 
-from api import get_top_games, get_news, get_stats
-from database import store_dataframe, list_tables
+from src.api import get_top_games, get_news, get_stats
+from src.database import store_dataframe, list_tables
 
 
 DEFAULT_ARGS = {
