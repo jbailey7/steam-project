@@ -4,7 +4,7 @@ import altair as alt
 import os
 
 # Import API functions
-from api import (
+from src.api import (
     get_top_games,
     get_news,
     get_stats,
@@ -15,8 +15,6 @@ from api import (
     get_steam_level,
     get_ban_info
 )
-
-API_KEY = os.getenv("STEAM_API_KEY")
 
 def main():
     # Page Config + Dark Theme CSS
@@ -153,6 +151,11 @@ def main():
         "🌍 Global Game Explorer",
         "📊 Global Metrics"
     ])
+    
+    API_KEY = os.getenv("STEAM_API_KEY")
+    if not API_KEY:
+        st.error("No STEAM_API_KEY provided")
+        st.stop()
 
     # TAB 1 — Steam User Lookup
     with tab1:
@@ -164,7 +167,7 @@ def main():
         if not steam_id:
             st.info("Select an account above to load profile data.")
             st.stop()
-
+        
         user_df = cached_user(steam_id, API_KEY)
 
         if user_df.empty:
@@ -279,8 +282,8 @@ def main():
                     alt.Chart(stats_df)
                     .mark_bar(color="#4FA3FF")
                     .encode(
-                        x="percent_unlocked:Q",
-                        y=alt.Y("achievement:N", sort="-x"),
+                        x=alt.X("percent_unlocked:Q", scale=alt.Scale(domain=[0, 100])),
+                        y=alt.Y("achievement:N", sort="-x").axis(labelLimit=500),
                         tooltip=["achievement", "percent_unlocked"]
                     )
                 )
@@ -376,7 +379,7 @@ def main():
                 rows.append({"Game": name, "Price": price, "Players": count})
 
         df = pd.DataFrame(rows)
-
+        
         zoom = alt.selection_interval(bind='scales')
 
         scatter = (
@@ -460,8 +463,18 @@ def main():
             .mark_bar()
             .encode(
                 x="Genre:N",
-                y="mean(Score):Q",
-                tooltip=["Genre", "mean(Score)"]
+                y=alt.Y(
+                    "mean(Score):Q",
+                    axis=alt.Axis(title="Average Score")
+                ),
+                tooltip=[
+                    "Genre:N",
+                    alt.Tooltip(
+                        "mean(Score):Q",
+                        title="Average Score",
+                        format=".2f"
+                    )
+                ]
             )
         )
         st.altair_chart(chart, use_container_width=True)

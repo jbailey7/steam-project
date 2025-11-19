@@ -1,7 +1,7 @@
 import requests
 import pandas as pd
 
-from database import (
+from src.database import (
     store_store_info,
     store_player_count,
     store_user_profile,

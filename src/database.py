@@ -2,6 +2,7 @@ import json
 import sqlite3
 import pandas as pd
 from contextlib import closing
+import os
 
 DB_PATH = os.getenv("STEAM_DB_PATH", "steam.db")
 
@@ -136,6 +137,9 @@ def store_owned_games(steam_id, owned_json):
             conn.commit()
     except sqlite3.OperationalError:
         pass
+    
+    df = df.drop(columns=['content_descriptorids'])
+
     df.to_sql("owned_games", conn, if_exists="append", index=False)
     conn.close()
     print(f"Stored {len(df)} owned games for steamid {steam_id}")
