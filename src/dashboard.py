@@ -282,7 +282,10 @@ def main():
                     alt.Chart(stats_df)
                     .mark_bar(color="#4FA3FF")
                     .encode(
-                        x="percent_unlocked:Q",
+                        x=alt.X(
+                            "percent_unlocked:Q",
+                            scale=alt.Scale(domain=[0, 100])
+                        ),                        
                         y=alt.Y("achievement:N", sort="-x"),
                         tooltip=["achievement", "percent_unlocked"]
                     )
