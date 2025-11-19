@@ -36,4 +36,4 @@ airflow users create \
   --email jack@example.com \
   --password password
 
-  3. Navigate to `http://localhost:8080/` and use the credentials you created to sign in. 
+3. Navigate to `http://localhost:8080/` and use the credentials you created to sign in. 
