@@ -282,11 +282,8 @@ def main():
                     alt.Chart(stats_df)
                     .mark_bar(color="#4FA3FF")
                     .encode(
-                        x=alt.X(
-                            "percent_unlocked:Q",
-                            scale=alt.Scale(domain=[0, 100])
-                        ),                        
-                        y=alt.Y("achievement:N", sort="-x"),
+                        x=alt.X("percent_unlocked:Q", scale=alt.Scale(domain=[0, 100])),
+                        y=alt.Y("achievement:N", sort="-x").axis(labelLimit=500),
                         tooltip=["achievement", "percent_unlocked"]
                     )
                 )
@@ -466,8 +463,18 @@ def main():
             .mark_bar()
             .encode(
                 x="Genre:N",
-                y="mean(Score):Q",
-                tooltip=["Genre", "mean(Score)"]
+                y=alt.Y(
+                    "mean(Score):Q",
+                    axis=alt.Axis(title="Average Score")
+                ),
+                tooltip=[
+                    "Genre:N",
+                    alt.Tooltip(
+                        "mean(Score):Q",
+                        title="Average Score",
+                        format=".2f"
+                    )
+                ]
             )
         )
         st.altair_chart(chart, use_container_width=True)
