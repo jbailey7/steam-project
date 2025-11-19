@@ -58,7 +58,7 @@ def store_store_info(appid, info):
         "is_free": info.get("is_free"),
         "release_date": info.get("release_date", {}).get("date"),
         "price_currency": price.get("currency"),
-        "price_final": price.get("final"),
+        "price_final": None if price.get("final") is None else price.get("final") / 100.0,
         "price_discount_percent": price.get("discount_percent"),
         "raw_json": json.dumps(info)
     }
