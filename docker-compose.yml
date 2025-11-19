@@ -8,7 +8,8 @@ services:
       - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=sqlite:////opt/airflow/airflow.db
       - AIRFLOW__CORE__FERNET_KEY=${AIRFLOW_FERNET_KEY}
       - AIRFLOW__CORE__LOAD_EXAMPLES=False
-      - _PIP_ADDITIONAL_REQUIREMENTS=pandas requests
+      - _PIP_ADDITIONAL_REQUIREMENTS=pandas requests apache-airflow-providers-fab
+      - AIRFLOW__CORE__AUTH_MANAGER=airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
     volumes:
       - airflow_home:/opt/airflow
       - ./airflow/dags:/opt/airflow/dags
@@ -29,13 +30,12 @@ services:
       - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=sqlite:////opt/airflow/airflow.db
       - AIRFLOW__CORE__FERNET_KEY=${AIRFLOW_FERNET_KEY}
       - AIRFLOW__CORE__LOAD_EXAMPLES=False
-      - AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_USERS=${AIRFLOW_ADMIN_USERNAME}:${AIRFLOW_ADMIN_ROLE}
       - STEAM_DB_PATH=/opt/airflow/steam_project/steam.db
-      - _PIP_ADDITIONAL_REQUIREMENTS=pandas requests
+      - _PIP_ADDITIONAL_REQUIREMENTS=pandas requests apache-airflow-providers-fab
+      - AIRFLOW__CORE__AUTH_MANAGER=airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
       - STEAM_API_KEY=${STEAM_API_KEY}
-      - AIRFLOW__API__BASE_URL=http://airflow-api-server:8080
+      - AIRFLOW__API__BASE_URL=http://localhost:8080
       - PYTHONWARNINGS=ignore::DeprecationWarning
-
     volumes:
       - airflow_home:/opt/airflow
       - ./airflow/dags:/opt/airflow/dags
@@ -56,9 +56,9 @@ services:
       - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=sqlite:////opt/airflow/airflow.db
       - AIRFLOW__CORE__FERNET_KEY=${AIRFLOW_FERNET_KEY}
       - AIRFLOW__CORE__LOAD_EXAMPLES=False
-      - AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_USERS=${AIRFLOW_ADMIN_USERNAME}:${AIRFLOW_ADMIN_ROLE}
       - STEAM_DB_PATH=/opt/airflow/steam_project/steam.db
-      - _PIP_ADDITIONAL_REQUIREMENTS=pandas requests
+      - _PIP_ADDITIONAL_REQUIREMENTS=pandas requests apache-airflow-providers-fab
+      - AIRFLOW__CORE__AUTH_MANAGER=airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
       - STEAM_API_KEY=${STEAM_API_KEY}
       - AIRFLOW__API__BASE_URL=http://airflow-api-server:8080
       - PYTHONWARNINGS=ignore::DeprecationWarning
@@ -80,9 +80,9 @@ services:
       - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=sqlite:////opt/airflow/airflow.db
       - AIRFLOW__CORE__FERNET_KEY=${AIRFLOW_FERNET_KEY}
       - AIRFLOW__CORE__LOAD_EXAMPLES=False
-      - AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_USERS=${AIRFLOW_ADMIN_USERNAME}:${AIRFLOW_ADMIN_ROLE}
       - STEAM_DB_PATH=/opt/airflow/steam_project/steam.db
-      - _PIP_ADDITIONAL_REQUIREMENTS=pandas requests
+      - _PIP_ADDITIONAL_REQUIREMENTS=pandas requests apache-airflow-providers-fab
+      - AIRFLOW__CORE__AUTH_MANAGER=airflow.providers.fab.auth_manager.fab_auth_manager.FabAuthManager
       - STEAM_API_KEY=${STEAM_API_KEY}
       - AIRFLOW__API__BASE_URL=http://airflow-api-server:8080
       - PYTHONWARNINGS=ignore::DeprecationWarning
@@ -92,30 +92,6 @@ services:
       - ./:/opt/airflow/steam_project
       - ./steam.db:/opt/airflow/steam_project/steam.db
     command: dag-processor
-
-  airflow-worker:
-    image: apache/airflow:3.1.2
-    container_name: airflow-worker
-    depends_on:
-      - airflow-init
-    environment:
-      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
-      - AIRFLOW__DATABASE__SQL_ALCHEMY_CONN=sqlite:////opt/airflow/airflow.db
-      - AIRFLOW__CORE__FERNET_KEY=${AIRFLOW_FERNET_KEY}
-      - AIRFLOW__CORE__LOAD_EXAMPLES=False
-      - AIRFLOW__CORE__SIMPLE_AUTH_MANAGER_USERS=${AIRFLOW_ADMIN_USERNAME}:${AIRFLOW_ADMIN_ROLE}
-      - STEAM_DB_PATH=/opt/airflow/steam_project/steam.db
-      - _PIP_ADDITIONAL_REQUIREMENTS=pandas requests
-      - STEAM_API_KEY=${STEAM_API_KEY}
-      - AIRFLOW__API__BASE_URL=http://airflow-api-server:8080
-      - PYTHONWARNINGS=ignore::DeprecationWarning
-    volumes:
-      - airflow_home:/opt/airflow
-      - ./airflow/dags:/opt/airflow/dags
-      - ./:/opt/airflow/steam_project
-      - ./steam.db:/opt/airflow/steam_project/steam.db
-    command: worker
-
 
   # runs main.py
   steam-etl:

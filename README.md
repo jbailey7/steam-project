@@ -17,7 +17,23 @@ AIRFLOW_ADMIN_ROLE=admin=<role-value>
 ### Airflow
 To view the Airflow UI, follow steps 1-4 from the Usage section above. Then: 
 1. In a separate tab, run `docker exec -it airflow-api-server bash`
-2. Then `cat simple_auth_manager_passwords.json.generated` will show the generated airflow password
-3. Navitage to `http://localhost:8080/`
-4. Sign in with username: "admin" and password: <the value from above>
-5. View the UI!
+2. Inside the container, run: 
+
+airflow users create \
+  --username admin \
+  --firstname <firstname> \
+  --lastname <lastname> \
+  --role Admin \
+  --email <email> \
+  --password <password>
+
+An example of the following is: 
+airflow users create \
+  --username admin \
+  --firstname Jack \
+  --lastname Bailey \
+  --role Admin \
+  --email jack@example.com \
+  --password password
+
+  3. Navigate to `http://localhost:8080/` and use the credentials you created to sign in. 
