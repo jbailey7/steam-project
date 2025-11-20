@@ -1,42 +1,23 @@
 import requests
 import pandas as pd
 
-from src.database import (
+from .database import (
     store_store_info,
     store_player_count,
     store_user_profile,
     store_owned_games,
+    store_dataframe,
 )
 
-DEFAULT_HEADERS = {
-    "User-Agent": (
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-        "AppleWebKit/537.36 (KHTML, like Gecko) "
-        "Chrome/120.0.0.0 Safari/537.36"
-    ),
-    "Accept-Language": "en-US,en;q=0.9"
-}
-
 # Utility – Safe JSON fetch
-def _safe_json(url, timeout=10):
+def _safe_json(url, timeout=5):
     try:
-        r = requests.get(url, headers=DEFAULT_HEADERS, timeout=timeout, proxies=None)
-        r.raise_for_status()
+        r = requests.get(url, timeout=timeout)
+        if r.status_code != 200:
+            return {}
         return r.json()
-
-    except requests.exceptions.Timeout:
-        print(f"Timeout in _safe_json while fetching {url} (timeout={timeout}s)")
+    except:
         return {}
-
-    except requests.exceptions.RequestException as e:
-        print(f"Error in _safe_json while fetching {url}: {e}")
-        return {}
-
-    except ValueError as e:
-        # JSON decoding errors
-        print(f"JSON decode error in _safe_json for {url}: {e}")
-        return {}
-
 
 # 1. Global: Top Games
 def get_top_games(limit=100):
@@ -81,6 +62,8 @@ def get_news(appid):
 
     if not df.empty:
         df["date"] = pd.to_datetime(df["date"], unit="s", errors="coerce")
+        df["appid"] = appid
+        store_dataframe(df, "news", if_exists="append")
 
     return df
 
@@ -96,6 +79,8 @@ def get_stats(appid):
     if not df.empty:
         df.rename(columns={"name": "achievement", "percent": "percent_unlocked"}, inplace=True)
         df["percent_unlocked"] = pd.to_numeric(df["percent_unlocked"], errors="coerce")
+        df["appid"] = appid
+        store_dataframe(df, "stats", if_exists="append")
 
     return df
 

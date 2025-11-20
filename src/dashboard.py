@@ -1,20 +1,24 @@
-import streamlit as st
-import pandas as pd
-import altair as alt
+import json
 import os
 
-# Import API functions
+import altair as alt
+import pandas as pd
+import streamlit as st
+
+# Import API functions from the src package
 from src.api import (
-    get_top_games,
-    get_news,
-    get_stats,
-    get_store_info,
+    get_ban_info,
     get_current_players,
-    get_steam_user_info,
+    get_news,
     get_owned_games,
+    get_stats,
     get_steam_level,
-    get_ban_info
+    get_steam_user_info,
+    get_store_info,
+    get_top_games,
 )
+from src.database import load_table
+
 
 def main():
     # Page Config + Dark Theme CSS
@@ -22,6 +26,10 @@ def main():
         page_title="Steam Analytics Dashboard",
         layout="centered",
     )
+
+    default_api_key = "7EBAED296E47438BA2EDA19B544D867C"
+    api_key = os.getenv("STEAM_API_KEY") or default_api_key
+    st.write("API KEY DETECTED:", api_key)
 
     # Dark Mode Styling
     st.markdown("""
@@ -74,30 +82,96 @@ def main():
     </style>
     """, unsafe_allow_html=True)
 
-    # CACHE LAYER
+    # Helpers to read from DB when available
+    def _load_table(name):
+        try:
+            return load_table(name)
+        except Exception:
+            return pd.DataFrame()
+
+    # CACHE LAYER — prefer DB, fall back to API
     @st.cache_data(show_spinner=False)
     def cached_top_games(limit=100):
+        df = _load_table("games")
+        if not df.empty and {"appid", "name"}.issubset(df.columns):
+            if "players_2weeks" in df.columns:
+                df = df.sort_values("players_2weeks", ascending=False)
+            df = df.head(limit)
+            games = dict(zip(df["name"], df["appid"]))
+            if games:
+                return games
         return get_top_games(limit)
 
     @st.cache_data(show_spinner=False)
     def cached_news(appid):
+        df = _load_table("news")
+        if not df.empty and "appid" in df.columns:
+            df = df[df["appid"] == appid].copy()
+            if not df.empty and "date" in df.columns:
+                df["date"] = pd.to_datetime(df["date"], errors="coerce")
+            if not df.empty:
+                return df
         return get_news(appid)
 
     @st.cache_data(show_spinner=False)
     def cached_stats(appid):
+        df = _load_table("stats")
+        if not df.empty and "appid" in df.columns:
+            df = df[df["appid"] == appid].copy()
+            if not df.empty and "percent_unlocked" in df.columns:
+                df["percent_unlocked"] = pd.to_numeric(df["percent_unlocked"], errors="coerce")
+            if not df.empty:
+                return df
         return get_stats(appid)
 
     @st.cache_data(show_spinner=False)
     def cached_store(appid):
+        df = _load_table("store_metadata")
+        if not df.empty and "appid" in df.columns:
+            row = df[df["appid"] == appid]
+            if not row.empty:
+                row = row.iloc[0]
+                if "raw_json" in row:
+                    try:
+                        return json.loads(row["raw_json"])
+                    except Exception:
+                        pass
+                return row.to_dict()
         return get_store_info(appid)
 
     @st.cache_data(show_spinner=False)
     def cached_players(appid):
+        df = _load_table("player_counts")
+        if not df.empty and "appid" in df.columns:
+            sub = df[df["appid"] == appid].copy()
+            if "retrieved_at" in sub.columns:
+                sub["retrieved_at"] = pd.to_datetime(sub["retrieved_at"], errors="coerce")
+                sub = sub.sort_values("retrieved_at")
+            if not sub.empty and "player_count" in sub.columns:
+                return int(sub.iloc[-1]["player_count"])
         return get_current_players(appid)
 
     @st.cache_data(show_spinner=False)
     def cached_user(steam_id, key):
+        df = _load_table("user_profiles")
+        if not df.empty and "steamid" in df.columns:
+            sub = df[df["steamid"] == steam_id].copy()
+            if not sub.empty:
+                for col in ("timecreated", "lastlogoff"):
+                    if col in sub.columns:
+                        sub[col] = pd.to_datetime(sub[col], errors="coerce")
+                return sub
         return get_steam_user_info(steam_id, key)
+
+    @st.cache_data(show_spinner=False)
+    def cached_owned(steam_id, key):
+        df = _load_table("owned_games")
+        if not df.empty and "steamid" in df.columns:
+            sub = df[df["steamid"] == steam_id].copy()
+            if not sub.empty:
+                games = sub.drop(columns=["steamid"], errors="ignore").to_dict(orient="records")
+                return {"response": {"games": games, "game_count": len(games)}}
+        return get_owned_games(key, steam_id)
 
     # UI Title
     st.title("🎮 Steam Analytics Dashboard")
@@ -152,8 +226,8 @@ def main():
         "📊 Global Metrics"
     ])
     
-    API_KEY = os.getenv("STEAM_API_KEY")
-    if not API_KEY:
+    # Use the same api_key for user lookups
+    if not api_key:
         st.error("No STEAM_API_KEY provided")
         st.stop()
 
@@ -168,7 +242,7 @@ def main():
             st.info("Select an account above to load profile data.")
             st.stop()
         
-        user_df = cached_user(steam_id, API_KEY)
+        user_df = cached_user(steam_id, api_key)
 
         if user_df.empty:
             st.error("No user found for this SteamID64.")
@@ -197,9 +271,9 @@ def main():
         st.markdown("---")
         st.subheader("📈 User Stats")
 
-        owned = get_owned_games(API_KEY, steam_id)
-        level = get_steam_level(API_KEY, steam_id)
-        bans = get_ban_info(API_KEY, steam_id)
+        owned = cached_owned(steam_id, api_key)
+        level = get_steam_level(api_key, steam_id)
+        bans = get_ban_info(api_key, steam_id)
 
         game_count = owned.get("response", {}).get("game_count", 0)
         games_list = owned.get("response", {}).get("games", [])

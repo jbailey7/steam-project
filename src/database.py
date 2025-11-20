@@ -1,16 +1,27 @@
 import json
 import sqlite3
-import pandas as pd
 from contextlib import closing
-import os
+from pathlib import Path
 
-DB_PATH = os.getenv("STEAM_DB_PATH", "steam.db")
+import pandas as pd
+
+# Keep the database location consistent with the project and avoid clashing with a folder named steam.db
+BASE_DIR = Path(__file__).resolve().parent.parent
+DB_DIR = BASE_DIR / "data"
+DB_DIR.mkdir(exist_ok=True)
+DB_PATH = DB_DIR / "steam.db"
+
+
+def _serialize_value(v):
+    """Normalize non-scalar types so SQLite bindings don't fail."""
+    if isinstance(v, (dict, list, set, tuple)):
+        return json.dumps(v, ensure_ascii=False)
+    return v
 
 
 def create_connection():
     """Create a SQLite database connection."""
-    conn = sqlite3.connect(DB_PATH)
-    return conn
+    return sqlite3.connect(DB_PATH)
 
 
 def store_dataframe(df, table_name, if_exists="replace"):
@@ -19,6 +30,7 @@ def store_dataframe(df, table_name, if_exists="replace"):
         print(f"No data to store for {table_name}")
         return
 
+    df = df.copy().applymap(_serialize_value)
     conn = create_connection()
     df.to_sql(table_name, conn, if_exists=if_exists, index=False)
     conn.close()
@@ -36,9 +48,7 @@ def load_table(table_name):
 def list_tables():
     """Show available tables in the database."""
     conn = create_connection()
-    tables = pd.read_sql_query(
-        "SELECT name FROM sqlite_master WHERE type='table';", conn
-    )
+    tables = pd.read_sql_query("SELECT name FROM sqlite_master WHERE type='table';", conn)
     conn.close()
     return tables["name"].tolist()
 
@@ -64,7 +74,7 @@ def store_store_info(appid, info):
         "price_currency": price.get("currency"),
         "price_final": None if price.get("final") is None else price.get("final") / 100.0,
         "price_discount_percent": price.get("discount_percent"),
-        "raw_json": json.dumps(info)
+        "raw_json": json.dumps(info),
     }
 
     conn = create_connection()
@@ -85,11 +95,15 @@ def store_player_count(appid, player_count):
         print(f"No player count to store for appid {appid}")
         return
 
-    df = pd.DataFrame([{
-        "appid": appid,
-        "player_count": player_count,
-        "retrieved_at": pd.Timestamp.utcnow()
-    }])
+    df = pd.DataFrame(
+        [
+            {
+                "appid": appid,
+                "player_count": player_count,
+                "retrieved_at": pd.Timestamp.utcnow(),
+            }
+        ]
+    )
     conn = create_connection()
     try:
         with closing(conn.cursor()) as cur:
@@ -129,6 +143,7 @@ def store_owned_games(steam_id, owned_json):
 
     df = pd.DataFrame(games)
     df["steamid"] = steam_id
+    df = df.applymap(_serialize_value)
 
     conn = create_connection()
     try:
@@ -137,9 +152,6 @@ def store_owned_games(steam_id, owned_json):
             conn.commit()
     except sqlite3.OperationalError:
         pass
-    
-    df = df.drop(columns=['content_descriptorids'])
-
     df.to_sql("owned_games", conn, if_exists="append", index=False)
     conn.close()
     print(f"Stored {len(df)} owned games for steamid {steam_id}")
