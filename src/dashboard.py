@@ -121,8 +121,6 @@ def main():
     if not api_key:
         st.write("NO API KEY DETECTED")
         st.stop()
-    
-    st.write("API KEY DETECTED:", api_key)
 
     # Dark Mode Styling
     st.markdown("""
@@ -179,7 +177,7 @@ def main():
     # UI Title
     st.title("🎮 Steam Analytics Dashboard")
 
-    st.image("images/steam-logo.jpg", use_container_width=True)
+    st.image("images/steam-logo.jpg", width="stretch")
 
     # adding section for adding steam accounts
     if "accounts" not in st.session_state:
@@ -221,7 +219,7 @@ def main():
             st.rerun()
 
     st.markdown("---")
-
+    
     # Tabs
     tab1, tab2, tab3 = st.tabs([
         "🔍 Steam User Lookup",
@@ -233,6 +231,8 @@ def main():
     if not api_key:
         st.error("No STEAM_API_KEY provided")
         st.stop()
+        
+    all_games = cached_top_games(100)
 
     # TAB 1 — Steam User Lookup
     with tab1:
@@ -313,13 +313,13 @@ def main():
 
         st.header("🌍 Global Game Explorer")
 
-        games = cached_top_games(100)
-        game_names = list(games.keys())
+        # games = cached_top_games(100)
+        game_names = list(all_games.keys())
 
         selected = st.selectbox("Select a game:", game_names)
 
         if selected:
-            appid = games[selected]
+            appid = all_games[selected]
 
             st.subheader(f"📰 Latest News — {selected}")
             news_df = cached_news(appid)
@@ -341,7 +341,7 @@ def main():
                 st.data_editor(
                     temp,
                     hide_index=True,
-                    use_container_width=True,
+                    width="stretch",
                     column_config={
                         "Link": st.column_config.LinkColumn(
                             label="Open Article",
@@ -364,7 +364,7 @@ def main():
                         tooltip=["achievement", "percent_unlocked"]
                     )
                 )
-                st.altair_chart(chart, use_container_width=True)
+                st.altair_chart(chart, width="stretch")
 
             st.subheader("🧊 Store Information")
             store = cached_store(appid)
@@ -387,7 +387,6 @@ def main():
 
     # TAB 3 — Global Metrics
     with tab3:
-
         st.header("📊 Global Steam Metrics")
 
         all_games = cached_top_games(100)
@@ -395,13 +394,21 @@ def main():
         # Top 10 most played
         st.subheader("🔥 Top 10 Most Played Games")
 
-        rows = []
+        player_count_rows = []
+        player_price_rows = []
+        price_types_rows = []
         for name, appid in all_games.items():
             count = cached_players(appid)
+            store = cached_store(appid)
+            if store and count:
+                price = store.get("price_overview", {}).get("final", 0) / 100
+                player_price_rows.append({"Game": name, "Price": price, "Players": count})
             if count:
-                rows.append({"Game": name, "Players": count})
+                player_count_rows.append({"Game": name, "Players": count})
+            if store:
+                price_types_rows.append("Free" if store.get("is_free", False) else "Paid")
 
-        df_players = pd.DataFrame(rows).sort_values("Players", ascending=False).head(10)
+        df_players = pd.DataFrame(player_count_rows).sort_values("Players", ascending=False).head(10)
 
         chart = (
             alt.Chart(df_players)
@@ -412,19 +419,12 @@ def main():
                 tooltip=["Game", "Players"]
             )
         )
-        st.altair_chart(chart, use_container_width=True)
+        st.altair_chart(chart, width="stretch")
 
         # Free vs Paid
         st.subheader("🪙 Free vs Paid Distribution")
 
-        price_types = []
-
-        for name, appid in all_games.items():
-            info = cached_store(appid)
-            if info:
-                price_types.append("Free" if info.get("is_free", False) else "Paid")
-
-        price_df = pd.DataFrame({"Type": price_types})
+        price_df = pd.DataFrame({"Type": price_types_rows})
 
         counts = price_df["Type"].value_counts().reset_index()
         counts.columns = ["Type", "Count"]
@@ -443,34 +443,26 @@ def main():
             )
         )
 
-        st.altair_chart(pie, use_container_width=True)
+        st.altair_chart(pie, width="stretch")
 
         st.subheader("🏷 Price vs Player Count Scatterplot")
 
-        rows = []
-        for name, appid in all_games.items():
-            store = cached_store(appid)
-            count = cached_players(appid)
-            if store and count:
-                price = store.get("price_overview", {}).get("final", 0) / 100
-                rows.append({"Game": name, "Price": price, "Players": count})
-
-        df = pd.DataFrame(rows)
+        df_price_players = pd.DataFrame(player_price_rows)
         
         zoom = alt.selection_interval(bind='scales')
 
         scatter = (
-            alt.Chart(df)
+            alt.Chart(df_price_players)
             .mark_circle(size=90)
             .encode(
                 x=alt.X("Price:Q", title="Price ($)"),
                 y=alt.Y("Players:Q", title="Players Online"),
                 tooltip=["Game", "Price", "Players"]
             )
-            .add_selection(zoom)
+            .add_params(zoom)
         )
 
-        st.altair_chart(scatter, use_container_width=True)
+        st.altair_chart(scatter, width="stretch")
 
         # Genre frequency
         st.subheader("🎮🕹️👾 Top Genres")
@@ -500,7 +492,7 @@ def main():
         # Filter from the full dataset
         filtered = genre_all_df[genre_all_df["Genre"].isin(genre_filter)]
 
-        highlight = alt.selection_single(on="mouseover", fields=["Genre"], empty="none")
+        highlight = alt.selection_point(on="mouseover", fields=["Genre"], empty="none")
 
         genre_chart = (
             alt.Chart(filtered)
@@ -516,10 +508,10 @@ def main():
                 ),
                 tooltip=["Genre", "Count"]
             )
-            .add_selection(highlight)
+            .add_params(highlight)
         )
 
-        st.altair_chart(genre_chart, use_container_width=True)
+        st.altair_chart(genre_chart, width="stretch")
 
         st.subheader("🎯 Average Metacritic Score by Genre")
 
@@ -554,7 +546,7 @@ def main():
                 ]
             )
         )
-        st.altair_chart(chart, use_container_width=True)
+        st.altair_chart(chart, width="stretch")
 
 if __name__ == "__main__":
     main()

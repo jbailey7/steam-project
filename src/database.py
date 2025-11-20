@@ -30,7 +30,7 @@ def store_dataframe(df, table_name, if_exists="replace"):
         print(f"No data to store for {table_name}")
         return
 
-    df = df.copy().applymap(_serialize_value)
+    df = df.copy().apply(lambda col: col.map(_serialize_value))
     conn = create_connection()
     df.to_sql(table_name, conn, if_exists=if_exists, index=False)
     conn.close()
