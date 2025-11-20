@@ -2,10 +2,8 @@ import json
 import sqlite3
 import pandas as pd
 from contextlib import closing
-import os
 
-DB_PATH = os.getenv("STEAM_DB_PATH", "steam.db")
-
+DB_PATH = "steam.db"
 
 def create_connection():
     """Create a SQLite database connection."""
