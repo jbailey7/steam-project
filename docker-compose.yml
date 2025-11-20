@@ -95,22 +95,10 @@ services:
       - ./steam.db:/opt/airflow/steam_project/steam.db
     command: dag-processor
 
-  # runs main.py
-  steam-etl:
-      build: .
-      container_name: steam-etl
-      environment:
-        - STEAM_DB_PATH=/app/steam.db
-      volumes:
-        - ./steam.db:/app/steam.db
-      command: python src/main.py
-
   # runs the streamlit dashboard
   steam-dashboard:
     build: .
     container_name: steam-dashboard
-    depends_on:
-      - steam-etl
     environment:
       - STEAM_DB_PATH=/app/steam.db
       - STEAM_API_KEY=${STEAM_API_KEY}
