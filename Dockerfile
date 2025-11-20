@@ -12,4 +12,4 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY src/ ./src/
 COPY images/ ./images/
 
-CMD ["python", "src/main.py"]
+CMD ["python", "src/dashboard.py"]
