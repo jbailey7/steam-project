@@ -40,13 +40,12 @@ def _safe_json(url, timeout=10):
 
 # 1. Global: Top Games
 def get_top_games(limit=100):
-    """Return dict: {game_name: appid} using SteamCharts API + Store API."""
     url = "https://api.steampowered.com/ISteamChartsService/GetMostPlayedGames/v1/"
     data = _safe_json(url)
 
-    ranks = data.get("response", {}).get("ranks", [])
-    ranks = ranks[:limit]
+    ranks = data.get("response", {}).get("ranks", [])[:limit]
 
+    rows = []
     games = {}
 
     for g in ranks:
@@ -54,23 +53,27 @@ def get_top_games(limit=100):
         if not appid:
             continue
 
-        # Fetch real game name using Store API
         store_raw = _safe_json(f"https://store.steampowered.com/api/appdetails?appids={appid}")
         block = store_raw.get(str(appid), {})
 
         if not block.get("success"):
             continue
 
-        dat = block.get("data", {})
-        if not dat:
-            continue
-
+        dat = block.get("data", {}) or {}
         name = dat.get("name", f"App {appid}")
+
         games[name] = appid
-        
-    # write to database
-    df = pd.DataFrame([games])
-    store_dataframe(df, "games", if_exists="append")
+
+        rows.append({
+            "appid": appid,
+            "name": name,
+            
+            "rank": g.get("rank"),
+        })
+
+    if rows:
+        df = pd.DataFrame(rows)
+        store_dataframe(df, "games", if_exists="replace")
 
     return games
 
