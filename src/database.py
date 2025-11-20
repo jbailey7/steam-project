@@ -11,6 +11,10 @@ DB_DIR = BASE_DIR / "data"
 DB_DIR.mkdir(exist_ok=True)
 DB_PATH = DB_DIR / "steam.db"
 
+# Remove old DB file if it exists
+if DB_PATH.exists():
+    DB_PATH.unlink()
+
 
 def _serialize_value(v):
     """Normalize non-scalar types so SQLite bindings don't fail."""
