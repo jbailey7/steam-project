@@ -9,14 +9,33 @@ from .database import (
     store_dataframe,
 )
 
+DEFAULT_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/120.0.0.0 Safari/537.36"
+    ),
+    "Accept-Language": "en-US,en;q=0.9"
+}
+
 # Utility – Safe JSON fetch
-def _safe_json(url, timeout=5):
+def _safe_json(url, timeout=10):
     try:
-        r = requests.get(url, timeout=timeout)
-        if r.status_code != 200:
-            return {}
+        r = requests.get(url, headers=DEFAULT_HEADERS, timeout=timeout, proxies=None)
+        r.raise_for_status()
         return r.json()
-    except:
+
+    except requests.exceptions.Timeout:
+        print(f"Timeout in _safe_json while fetching {url} (timeout={timeout}s)")
+        return {}
+
+    except requests.exceptions.RequestException as e:
+        print(f"Error in _safe_json while fetching {url}: {e}")
+        return {}
+
+    except ValueError as e:
+        # JSON decoding errors
+        print(f"JSON decode error in _safe_json for {url}: {e}")
         return {}
 
 # 1. Global: Top Games
@@ -48,6 +67,10 @@ def get_top_games(limit=100):
 
         name = dat.get("name", f"App {appid}")
         games[name] = appid
+        
+    # write to database
+    df = pd.DataFrame([games])
+    store_dataframe(df, "games", if_exists="append")
 
     return games
 

@@ -15,12 +15,12 @@ services:
     volumes:
       - airflow_home:/opt/airflow
       - ./airflow/dags:/opt/airflow/dags
-      - ./:/opt/airflow/steam_project
-      - ./steam.db:/opt/airflow/steam_project/steam.db
+      - ./:/opt/airflow/steam_project   # project mapped here (includes steam.db)
     entrypoint: >
       bash -c "
       airflow db migrate
       "
+
   # hosts airflow UI
   airflow-api-server:
     image: steam-airflow:3.1.2
@@ -42,12 +42,11 @@ services:
       - airflow_home:/opt/airflow
       - ./airflow/dags:/opt/airflow/dags
       - ./:/opt/airflow/steam_project
-      - ./steam.db:/opt/airflow/steam_project/steam.db
     ports:
       - "8080:8080"
     command: api-server
 
-  # create scheduler - this is used to create the DAG, but currently do not have a scheduled run set up
+  # create scheduler
   airflow-scheduler:
     image: steam-airflow:3.1.2
     pull_policy: never
@@ -64,12 +63,10 @@ services:
       - STEAM_API_KEY=${STEAM_API_KEY}
       - AIRFLOW__API__BASE_URL=http://airflow-api-server:8080
       - PYTHONWARNINGS=ignore::DeprecationWarning
-
     volumes:
       - airflow_home:/opt/airflow
       - ./airflow/dags:/opt/airflow/dags
       - ./:/opt/airflow/steam_project
-      - ./steam.db:/opt/airflow/steam_project/steam.db
     command: scheduler
 
   airflow-dag-processor:
@@ -92,7 +89,6 @@ services:
       - airflow_home:/opt/airflow
       - ./airflow/dags:/opt/airflow/dags
       - ./:/opt/airflow/steam_project
-      - ./steam.db:/opt/airflow/steam_project/steam.db
     command: dag-processor
 
   # runs the streamlit dashboard
@@ -103,7 +99,7 @@ services:
       - STEAM_DB_PATH=/app/steam.db
       - STEAM_API_KEY=${STEAM_API_KEY}
     volumes:
-      - ./steam.db:/app/steam.db
+      - ./:/app
     ports:
       - "8501:8501"
     command: >
