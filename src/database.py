@@ -11,7 +11,6 @@ DB_DIR = BASE_DIR / "data"
 DB_DIR.mkdir(exist_ok=True)
 DB_PATH = DB_DIR / "steam.db"
 
-
 def _serialize_value(v):
     """Normalize non-scalar types so SQLite bindings don't fail."""
     if isinstance(v, (dict, list, set, tuple)):
@@ -21,6 +20,7 @@ def _serialize_value(v):
 
 def create_connection():
     """Create a SQLite database connection."""
+    print(f"[database.py] Connecting to DB at: {DB_PATH}")
     return sqlite3.connect(DB_PATH)
 
 
@@ -30,18 +30,21 @@ def store_dataframe(df, table_name, if_exists="replace"):
         print(f"No data to store for {table_name}")
         return
 
-    df = df.copy().applymap(_serialize_value)
+    df = df.copy().apply(lambda col: col.map(_serialize_value))
     conn = create_connection()
     df.to_sql(table_name, conn, if_exists=if_exists, index=False)
     conn.close()
     print(f"Stored {len(df)} records in '{table_name}' table.")
 
-
 def load_table(table_name):
     """Load a table back into a DataFrame."""
     conn = create_connection()
-    df = pd.read_sql_query(f"SELECT * FROM {table_name}", conn)
-    conn.close()
+    try:
+        df = pd.read_sql_query(f"SELECT * FROM {table_name}", conn)
+    except Exception as e:
+        df = pd.DataFrame()
+    finally:
+        conn.close()
     return df
 
 
@@ -59,7 +62,7 @@ def store_steamspy_table(df):
 
 
 def store_store_info(appid, info):
-    """Persist Store metadata for a single appid."""
+    """Persist Store metadata for a single appid."""    
     if not info:
         print(f"No store metadata to store for appid {appid}")
         return

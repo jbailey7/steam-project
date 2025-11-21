@@ -19,6 +19,84 @@ from src.api import (
 )
 from src.database import load_table
 
+# CACHE LAYER — prefer DB, fall back to API
+def cached_top_games(limit=25):
+    df = load_table("games")
+    if not df.empty and {"appid", "name"}.issubset(df.columns):
+        if "players_2weeks" in df.columns:
+            df = df.sort_values("players_2weeks", ascending=False)
+        df = df.head(limit)
+        games = dict(zip(df["name"], df["appid"]))
+        if games:
+            return games
+    return get_top_games(limit)
+
+def cached_news(appid):
+    df = load_table("news")
+    if not df.empty and "appid" in df.columns:
+        df = df[df["appid"] == appid].copy()
+        if not df.empty and "date" in df.columns:
+            df["date"] = pd.to_datetime(df["date"], errors="coerce")
+        if not df.empty:
+            return df
+    return get_news(appid)
+
+def cached_stats(appid):
+    df = load_table("stats")
+    if not df.empty and "appid" in df.columns:
+        df = df[df["appid"] == appid].copy()
+        if not df.empty and "percent_unlocked" in df.columns:
+            df["percent_unlocked"] = pd.to_numeric(df["percent_unlocked"], errors="coerce")
+        if not df.empty:
+            return df
+    return get_stats(appid)
+
+def cached_store(appid):
+    df = load_table("store_metadata")
+    if not df.empty and "appid" in df.columns:
+        row = df[df["appid"] == appid]
+        if not row.empty:
+            row = row.iloc[0]
+            if "raw_json" in row:
+                try:
+                    res = json.loads(row["raw_json"])
+                    return res
+                except Exception as e:
+                    print(f"cached_store exception: {e}")
+                    pass
+            return row.to_dict()        
+    return get_store_info(appid)
+
+def cached_players(appid):
+    df = load_table("player_counts")
+    if not df.empty and "appid" in df.columns:
+        sub = df[df["appid"] == appid].copy()
+        if "retrieved_at" in sub.columns:
+            sub["retrieved_at"] = pd.to_datetime(sub["retrieved_at"], errors="coerce")
+            sub = sub.sort_values("retrieved_at")
+        if not sub.empty and "player_count" in sub.columns:
+            return int(sub.iloc[-1]["player_count"])
+    return get_current_players(appid)
+
+def cached_user(steam_id, key):
+    df = load_table("user_profiles")
+    if not df.empty and "steamid" in df.columns:
+        sub = df[df["steamid"] == steam_id].copy()
+        if not sub.empty:
+            for col in ("timecreated", "lastlogoff"):
+                if col in sub.columns:
+                    sub[col] = pd.to_datetime(sub[col], errors="coerce")
+            return sub
+    return get_steam_user_info(steam_id, key)
+
+def cached_owned(steam_id, key):
+    df = load_table("owned_games")
+    if not df.empty and "steamid" in df.columns:
+        sub = df[df["steamid"] == steam_id].copy()
+        if not sub.empty:
+            games = sub.drop(columns=["steamid"], errors="ignore").to_dict(orient="records")
+            return {"response": {"games": games, "game_count": len(games)}}
+    return get_owned_games(key, steam_id)
 
 def main():
     # Page Config + Dark Theme CSS
@@ -27,9 +105,10 @@ def main():
         layout="centered",
     )
 
-    default_api_key = "7EBAED296E47438BA2EDA19B544D867C"
-    api_key = os.getenv("STEAM_API_KEY") or default_api_key
-    st.write("API KEY DETECTED:", api_key)
+    api_key = os.getenv("STEAM_API_KEY")
+    if not api_key:
+        st.write("NO API KEY DETECTED")
+        st.stop()
 
     # Dark Mode Styling
     st.markdown("""
@@ -82,96 +161,6 @@ def main():
     </style>
     """, unsafe_allow_html=True)
 
-    # Helpers to read from DB when available
-    def _load_table(name):
-        try:
-            return load_table(name)
-        except Exception:
-            return pd.DataFrame()
-
-    # CACHE LAYER — prefer DB, fall back to API
-    @st.cache_data(show_spinner=False)
-    def cached_top_games(limit=100):
-        df = _load_table("games")
-        if not df.empty and {"appid", "name"}.issubset(df.columns):
-            if "players_2weeks" in df.columns:
-                df = df.sort_values("players_2weeks", ascending=False)
-            df = df.head(limit)
-            games = dict(zip(df["name"], df["appid"]))
-            if games:
-                return games
-        return get_top_games(limit)
-
-    @st.cache_data(show_spinner=False)
-    def cached_news(appid):
-        df = _load_table("news")
-        if not df.empty and "appid" in df.columns:
-            df = df[df["appid"] == appid].copy()
-            if not df.empty and "date" in df.columns:
-                df["date"] = pd.to_datetime(df["date"], errors="coerce")
-            if not df.empty:
-                return df
-        return get_news(appid)
-
-    @st.cache_data(show_spinner=False)
-    def cached_stats(appid):
-        df = _load_table("stats")
-        if not df.empty and "appid" in df.columns:
-            df = df[df["appid"] == appid].copy()
-            if not df.empty and "percent_unlocked" in df.columns:
-                df["percent_unlocked"] = pd.to_numeric(df["percent_unlocked"], errors="coerce")
-            if not df.empty:
-                return df
-        return get_stats(appid)
-
-    @st.cache_data(show_spinner=False)
-    def cached_store(appid):
-        df = _load_table("store_metadata")
-        if not df.empty and "appid" in df.columns:
-            row = df[df["appid"] == appid]
-            if not row.empty:
-                row = row.iloc[0]
-                if "raw_json" in row:
-                    try:
-                        return json.loads(row["raw_json"])
-                    except Exception:
-                        pass
-                return row.to_dict()
-        return get_store_info(appid)
-
-    @st.cache_data(show_spinner=False)
-    def cached_players(appid):
-        df = _load_table("player_counts")
-        if not df.empty and "appid" in df.columns:
-            sub = df[df["appid"] == appid].copy()
-            if "retrieved_at" in sub.columns:
-                sub["retrieved_at"] = pd.to_datetime(sub["retrieved_at"], errors="coerce")
-                sub = sub.sort_values("retrieved_at")
-            if not sub.empty and "player_count" in sub.columns:
-                return int(sub.iloc[-1]["player_count"])
-        return get_current_players(appid)
-
-    @st.cache_data(show_spinner=False)
-    def cached_user(steam_id, key):
-        df = _load_table("user_profiles")
-        if not df.empty and "steamid" in df.columns:
-            sub = df[df["steamid"] == steam_id].copy()
-            if not sub.empty:
-                for col in ("timecreated", "lastlogoff"):
-                    if col in sub.columns:
-                        sub[col] = pd.to_datetime(sub[col], errors="coerce")
-                return sub
-        return get_steam_user_info(steam_id, key)
-
-    @st.cache_data(show_spinner=False)
-    def cached_owned(steam_id, key):
-        df = _load_table("owned_games")
-        if not df.empty and "steamid" in df.columns:
-            sub = df[df["steamid"] == steam_id].copy()
-            if not sub.empty:
-                games = sub.drop(columns=["steamid"], errors="ignore").to_dict(orient="records")
-                return {"response": {"games": games, "game_count": len(games)}}
-        return get_owned_games(key, steam_id)
 
     # UI Title
     st.title("🎮 Steam Analytics Dashboard")
@@ -215,24 +204,28 @@ def main():
         # Load
         if c3.button("🔍", key=f"load-{acc}"):
             st.session_state.selected_account = acc
+            st.session_state.page = "🔍 Steam User Lookup"
             st.rerun()
 
     st.markdown("---")
+    
+    # pages
+    if "page" not in st.session_state:
+        st.session_state.page = "🔍 Steam User Lookup"
 
-    # Tabs
-    tab1, tab2, tab3 = st.tabs([
-        "🔍 Steam User Lookup",
-        "🌍 Global Game Explorer",
-        "📊 Global Metrics"
-    ])
+    page = st.segmented_control(
+        "Navigation",
+        ["🔍 Steam User Lookup", "🌍 Global Game Explorer", "📊 Global Metrics"],
+        key="page",
+    )
     
     # Use the same api_key for user lookups
     if not api_key:
         st.error("No STEAM_API_KEY provided")
         st.stop()
-
-    # TAB 1 — Steam User Lookup
-    with tab1:
+        
+    # page 1 — Steam User Lookup
+    if page == "🔍 Steam User Lookup":
 
         st.header("🔍 Steam User Lookup")
 
@@ -305,18 +298,18 @@ def main():
                 hours = round(g.get("playtime_forever", 0) / 60, 1)
                 st.write(f"- **{name}** — {hours} hrs")
 
-    # TAB 2 — Global Game Explorer
-    with tab2:
+    # page 2 — Global Game Explorer
+    elif page == "🌍 Global Game Explorer":
 
         st.header("🌍 Global Game Explorer")
 
-        games = cached_top_games(100)
-        game_names = list(games.keys())
+        all_games  = cached_top_games(25)
+        game_names = list(all_games.keys())
 
         selected = st.selectbox("Select a game:", game_names)
 
         if selected:
-            appid = games[selected]
+            appid = all_games[selected]
 
             st.subheader(f"📰 Latest News — {selected}")
             news_df = cached_news(appid)
@@ -382,23 +375,36 @@ def main():
             else:
                 st.metric("Players Online", f"{players:,}")
 
-    # TAB 3 — Global Metrics
-    with tab3:
-
+    # page 3 — Global Metrics
+    elif page == "📊 Global Metrics":
         st.header("📊 Global Steam Metrics")
 
-        all_games = cached_top_games(100)
+        all_games = cached_top_games(25)
 
         # Top 10 most played
         st.subheader("🔥 Top 10 Most Played Games")
 
-        rows = []
+        player_count_rows = []
+        player_price_rows = []
+        price_types_rows = []
+                
+        # cached store loop
+        for name, appid in all_games.items():
+            store = cached_store(appid)
+            if store:
+                price = store.get("price_overview", {}).get("final", 0) / 100
+                price_types_rows.append("Free" if store.get("is_free", False) else "Paid")
+                
+        # cached_players loop
         for name, appid in all_games.items():
             count = cached_players(appid)
-            if count:
-                rows.append({"Game": name, "Players": count})
+            store = cached_store(appid)
+            if count and store:
+                price = store.get("price_overview", {}).get("final", 0) / 100
+                player_price_rows.append({"Game": name, "Price": price, "Players": count})
+                player_count_rows.append({"Game": name, "Players": count})
 
-        df_players = pd.DataFrame(rows).sort_values("Players", ascending=False).head(10)
+        df_players = pd.DataFrame(player_count_rows).sort_values("Players", ascending=False).head(10)
 
         chart = (
             alt.Chart(df_players)
@@ -414,14 +420,7 @@ def main():
         # Free vs Paid
         st.subheader("🪙 Free vs Paid Distribution")
 
-        price_types = []
-
-        for name, appid in all_games.items():
-            info = cached_store(appid)
-            if info:
-                price_types.append("Free" if info.get("is_free", False) else "Paid")
-
-        price_df = pd.DataFrame({"Type": price_types})
+        price_df = pd.DataFrame({"Type": price_types_rows})
 
         counts = price_df["Type"].value_counts().reset_index()
         counts.columns = ["Type", "Count"]
@@ -444,27 +443,19 @@ def main():
 
         st.subheader("🏷 Price vs Player Count Scatterplot")
 
-        rows = []
-        for name, appid in all_games.items():
-            store = cached_store(appid)
-            count = cached_players(appid)
-            if store and count:
-                price = store.get("price_overview", {}).get("final", 0) / 100
-                rows.append({"Game": name, "Price": price, "Players": count})
-
-        df = pd.DataFrame(rows)
+        df_price_players = pd.DataFrame(player_price_rows)
         
         zoom = alt.selection_interval(bind='scales')
 
         scatter = (
-            alt.Chart(df)
+            alt.Chart(df_price_players)
             .mark_circle(size=90)
             .encode(
                 x=alt.X("Price:Q", title="Price ($)"),
                 y=alt.Y("Players:Q", title="Players Online"),
                 tooltip=["Game", "Price", "Players"]
             )
-            .add_selection(zoom)
+            .add_params(zoom)
         )
 
         st.altair_chart(scatter, use_container_width=True)
@@ -497,7 +488,7 @@ def main():
         # Filter from the full dataset
         filtered = genre_all_df[genre_all_df["Genre"].isin(genre_filter)]
 
-        highlight = alt.selection_single(on="mouseover", fields=["Genre"], empty="none")
+        highlight = alt.selection_point(on="mouseover", fields=["Genre"], empty="none")
 
         genre_chart = (
             alt.Chart(filtered)
@@ -513,7 +504,7 @@ def main():
                 ),
                 tooltip=["Genre", "Count"]
             )
-            .add_selection(highlight)
+            .add_params(highlight)
         )
 
         st.altair_chart(genre_chart, use_container_width=True)

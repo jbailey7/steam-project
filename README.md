@@ -2,11 +2,11 @@
 A fully interactive Streamlit dashboard that visualizes Steam user data, global game metrics, achievement difficulty, live player counts, store metadata, and more. The app combines Steam Web API calls with a SQLite database to deliver fast, cached, and dynamic insights.
 
 ### Docker Usage
-1. Set `DB_PATH` to your desired database path. If not value is provided then "steam.db" will be used as default.
-2. Set `AIRFLOW_FERNET_KEY` as an environment variable. This value can be anything, but it will be used to encrypt data. 
-3. Set `STEAM_API_KEY` as an environment variable. Can obtain a key here: https://steamcommunity.com/dev
-4. Run `docker compose up --build`
-5. Navigate to `http://localhost:8501/` to view the dashboard!
+1. Set `AIRFLOW_FERNET_KEY` as an environment variable. This value can be anything, but will be used to encrypt data. 
+2. Set `STEAM_API_KEY` as an environment variable. Can obtain a key here: https://steamcommunity.com/dev
+3. Run `docker compose up --build`
+4. Navigate to `http://localhost:8501/` to view the dashboard!
+
 
 ### Airflow
 To view the Airflow UI, follow steps 1-4 from the Usage section above. Then: 
@@ -31,6 +31,7 @@ airflow users create \
   --password password
 
 3. Navigate to `http://localhost:8080/` and use the credentials you created to sign in. 
+4. To trigger steam_user_lookup_dag, must set `DEFAULT_STEAM_ID` environment variable (eg 76561198200426447)
 
 
 ### Streamlit Usage
